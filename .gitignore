@@ -3,3 +3,6 @@ clojure/clojure.iml
 .vscode/
 .clj-kondo/
 .lsp
+.calva/
+.cpcache
+.nrepl-port
