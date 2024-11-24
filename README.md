@@ -1,12 +1,17 @@
-# Greenlabs 웹개발팀 스타터 킷
+# Clojure 부트캠프에 오신 것을 환영합니다. 🥳
 
-> 이 저장소는 웹개발팀 온보딩 계획에 포함된 [AoC](https://adventofcode.com/) 문제를 [ReScript](https://www.notion.so/greenlabs/449f68081a444cd98d87e522767eeeda) 또는 [Clojure](https://www.notion.so/greenlabs/Clojure-961742016d98444cb52a7797703d67bb)를 통해 풀며 학습하기 위한 저장소입니다.
+## How To
+1. 문제를 올리고 리뷰를 받기 위한 깃헙 Repository 를 생성합니다.
+2. IDE 세팅은 [노션](https://www.notion.so/protopie/Calva-VSCode-14845184b5da80f0b735cf0b45c23b68) 을 참고해주세요. (VS Code)
+3. [https://adventofcode.com/](https://adventofcode.com/) 에 가입 합니다.
+4. 각 문제의 input 을 확인합니다.
+   - `get your puzzle input` 클릭!
+   - 문제를 풀고 답을 제출하면 * 별을 받을 수 있습니다.
+   - 텍스트 파일로 저장해서 프로젝트에 추가해두면 문제 풀기 편합니다.
+     ![aoc-input](https://user-images.githubusercontent.com/18068051/131147594-c435c13a-47e6-436d-afd1-85c7a5382b08.png)
+5. 문제를 열심히 풉니다!
+6. 매일 오후 5시 30분에 리뷰가 시작됩니다.
+   - 리뷰어 분들이 미리 코드를 읽어볼 수 있도록 30분 전에 [bootcamp] 채널에 깃헙 링크를 공유해주세요.
 
-## 저장소 폴더 구성
-- [Clojure](./clojure)
-    - 서버 개발자들의 부트캠프 학습 안내
-    - [안내 문서](./clojure/README.md)
-- [ReScript](./rescript)
-    - FE 개발자들의 부트캠프 학습 안내
-- [문제 번역](./translations)
-    - 영어로 되어 있는 aoc 문제에 대한 간략한 한글 번역본을 제공합니다.
+## Tip
+- 파트 1, 2 문제를 다 읽고 공통으로 사용할 함수를 만들어보자!
