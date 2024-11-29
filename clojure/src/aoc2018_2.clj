@@ -17,22 +17,22 @@
 ;; 
 ;; 
 
-(defn solve-1 [input]
+(defn box-ids-counts-uniq [ids-str]
+  (->> ids-str
+       str/trim
+       frequencies
+       vals
+       distinct))
+
+(defn checksum [input]
   (->> input
     ;; parsing
        (str/split-lines)
-         ;; 내부 함수만 분리
-       (map #(-> %
-                 str/trim
-                 frequencies
-                 vals))
     ;; processing
-       (reduce
-        (fn [[two three] counts]
-          (cond-> [two three]
-            (some #{2} counts) (assoc 0 (+ two 1))
-            (some #{3} counts) (assoc 1 (+ three 1))))
-        [0 0])
+       (map box-ids-counts-uniq) ; (1) (1 2) (2 3) (3)
+       (mapcat #(filter #{2 3} %))
+       (frequencies)
+       (vals)
     ;; aggregate
        (reduce *)))
 (def real-input (slurp "resources/day2.input.txt"))
@@ -46,7 +46,7 @@
                      abcdee
                      ababab")
 
-  (solve-1 real-input))
+  (checksum real-input))
 
 ;; 파트 2
 ;; 여러개의 문자열 중, 같은 위치에 정확히 하나의 문자가 다른 문자열 쌍에서 같은 부분만을 리턴하시오.
