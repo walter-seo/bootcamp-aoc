@@ -26,14 +26,14 @@
 
 (defn checksum [input]
   (->> input
-    ;; parsing
+       ;; parsing
        (str/split-lines)
-    ;; processing
+       ;; processing
        (map box-ids-counts-uniq) ; (1) (1 2) (2 3) (3)
        (mapcat #(filter #{2 3} %))
        (frequencies)
        (vals)
-    ;; aggregate
+       ;; aggregate
        (reduce *)))
 (def real-input (slurp "resources/day2.input.txt"))
 
@@ -60,22 +60,43 @@
 ;; wvxyz
 
 ;; 주어진 예시에서 fguij와 fghij는 같은 위치 (2번째 인덱스)에 정확히 한 문자 (u와 h)가 다름. 따라서 같은 부분인 fgij를 리턴하면 됨.
-  ;; 두 string이 correct match 인지 check
-(defn correct-boxes? [a_str b_str]
-  (->> (map vector a_str b_str)
+(defn correct-boxes?
+  "두 문자열이 correct match 인지 여부"
+  [a-str b-str]
+  (->> (map vector a-str b-str)
        (filter (fn [[ac bc]] (not= ac bc)))
        count
        (= 1)))
 
-  ;; 공통부분 문자열
-(defn common-letters [a_str b_str]
-  (->> (map vector a_str b_str)
+(defn common-letters
+  "공통 문자열 반환"
+  [a-str b-str]
+  (->> (map vector a-str b-str)
        (filter (fn [[ac bc]] (= ac bc)))
        (map first)
        (apply str)))
 
-  ;; match 결과 찾기
-(defn find-correct-boxes [words]
+(defn box-pairs
+  "가능한 모든 박스 pair 경우의 수 만들기"
+  [words]
+  (for [item1 words
+        item2 words
+        :while (not= item1 item2)]
+    [item1 item2]))
+
+(defn find-correct-box-pair
+  "주어진 조합 안에서 correct box pair 찾아서 반환"
+  [box-pairs]
+  (->> box-pairs
+       (reduce
+        (fn [_ [item1 item2]]
+          (if (correct-boxes? item1 item2)
+            (reduced (vector item1 item2))
+            nil)))))
+
+(defn find-correct-boxes
+  "correct box 쌍 찾고 공통 문자열 반환"
+  [words]
     ;; loop & recur VS reduce & reduced
     ;;   (loop [[item & remaining] words]
     ;;       (if ( correct-boxes? item ))
@@ -83,15 +104,10 @@
     ;; NOTE
     ;; It might be poor performance because it causes O(N^2) time complexity.
     ;; It will return nil when it is not able to find the correct boxes.
-  (->> (for [item1 words
-             item2 words
-             :while (not= item1 item2)]
-         [item1 item2])
-       (reduce
-        (fn [_ [item1 item2]]
-          (if (correct-boxes? item1 item2)
-            (reduced (common-letters item1 item2))
-            nil)))))
+  (->>  words
+        (box-pairs)
+        (find-correct-box-pair)
+        (apply common-letters)))
 
 (defn solve-2 [input]
   (->> input
