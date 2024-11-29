@@ -15,6 +15,27 @@
 ;; 답 : 4 * 3 = 12
 ;; 
 ;; 
+;; 
+
+(defn solve-1 [input]
+  (->> input
+    ;; parsing
+       (str/split-lines)
+         ;; 내부 함수만 분리
+       (map #(-> %
+                 str/trim
+                 frequencies
+                 vals))
+    ;; processing
+       (reduce
+        (fn [[two three] counts]
+          (cond-> [two three]
+            (some #{2} counts) (assoc 0 (+ two 1))
+            (some #{3} counts) (assoc 1 (+ three 1))))
+        [0 0])
+    ;; aggregate
+       (reduce *)))
+(def real-input (slurp "resources/day2.input.txt"))
 
 (comment
   (def sample-input "abcdef
@@ -25,29 +46,7 @@
                      abcdee
                      ababab")
 
-  (defn solve-1 [input]
-    (->> input
-    ;; parsing
-         (str/split-lines)
-         (map #(-> %
-                   str/trim
-                   frequencies
-                   vals))
-    ;; processing
-         (reduce
-          (fn [[two three] counts]
-            (cond-> [two three]
-              (some #{2} counts) (assoc 0 (+ two 1))
-              (some #{3} counts) (assoc 1 (+ three 1))))
-          [0 0])
-    ;; aggregate
-         (reduce *)))
-
-  (def real-input (slurp "resources/day2.input.txt"))
-
   (solve-1 real-input))
-
-
 
 ;; 파트 2
 ;; 여러개의 문자열 중, 같은 위치에 정확히 하나의 문자가 다른 문자열 쌍에서 같은 부분만을 리턴하시오.
@@ -61,6 +60,46 @@
 ;; wvxyz
 
 ;; 주어진 예시에서 fguij와 fghij는 같은 위치 (2번째 인덱스)에 정확히 한 문자 (u와 h)가 다름. 따라서 같은 부분인 fgij를 리턴하면 됨.
+  ;; 두 string이 correct match 인지 check
+(defn correct-boxes? [a_str b_str]
+  (->> (map vector a_str b_str)
+       (filter (fn [[ac bc]] (not= ac bc)))
+       count
+       (= 1)))
+
+  ;; 공통부분 문자열
+(defn common-letters [a_str b_str]
+  (->> (map vector a_str b_str)
+       (filter (fn [[ac bc]] (= ac bc)))
+       (map first)
+       (apply str)))
+
+  ;; match 결과 찾기
+(defn find-correct-boxes [words]
+    ;; loop & recur VS reduce & reduced
+    ;;   (loop [[item & remaining] words]
+    ;;       (if ( correct-boxes? item ))
+    ;;     )
+    ;; NOTE
+    ;; It might be poor performance because it causes O(N^2) time complexity.
+    ;; It will return nil when it is not able to find the correct boxes.
+  (->> (for [item1 words
+             item2 words
+             :while (not= item1 item2)]
+         [item1 item2])
+       (reduce
+        (fn [_ [item1 item2]]
+          (if (correct-boxes? item1 item2)
+            (reduced (common-letters item1 item2))
+            nil)))))
+
+(defn solve-2 [input]
+  (->> input
+    ;; parsing
+       str/split-lines
+       (map str/trim)
+    ;; processing & aggregate 
+       find-correct-boxes))
 
 (comment
   (def sample-input
@@ -72,51 +111,8 @@
     axcye
     wvxyz")
 
-  ;; 두 string이 correct match 인지 check
-  (defn correct-boxes? [a_str b_str]
-    (->> (map vector a_str b_str)
-         (filter (fn [[ac bc]] (not= ac bc)))
-         count
-         (= 1)))
-
-  ;; 공통부분 문자열
-  (defn common-letters [a_str b_str]
-    (->> (map vector a_str b_str)
-         (filter (fn [[ac bc]] (= ac bc)))
-         (map first)
-         (apply str)))
-
-  ;; match 결과 찾기
-  (defn find-correct-boxes [words]
-    ;; loop & recur VS reduce & reduced
-    ;;   (loop [[item & remaining] words]
-    ;;       (if ( correct-boxes? item ))
-    ;;     )
-    ;; NOTE
-    ;; It might be poor performance because it causes O(N^2) time complexity.
-    ;; It will return nil when it is not able to find the correct boxes.
-    (->> (for [item1 words
-               item2 words
-               :while (not= item1 item2)]
-           [item1 item2])
-         (reduce
-          (fn [_ [item1 item2]]
-            (if (correct-boxes? item1 item2)
-              (reduced (common-letters item1 item2))
-              nil)))))
-
-  (defn solve-2 [input]
-    (->> input
-    ;; parsing
-         str/split-lines
-         (map str/trim)
-    ;; processing & aggregate 
-         find-correct-boxes))
-
-  (solve-2 real-input)
+  (solve-2 real-input))
   ;;
-  )
-
 
 ;; #################################
 ;; ###        Refactoring        ###
