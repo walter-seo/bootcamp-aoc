@@ -64,26 +64,6 @@
 (def real-input (slurp "resources/day4.input.txt"))
 
 (comment
-  (re-find #"#(\d+)" "[1518-11-01 00:00] Guard #10 begins shift")
-  (def s1 "[1518-11-01 00:00] Guard #10 begins shift")
-  (def s2 "[1518-11-01 00:20] Guard #10 begins shift")
-  (jt/time-between
-   (parse-time s1)
-   (parse-time s2)
-   :minutes)
-  (jt/plus (parse-time s1) (jt/minutes 1))
-  (->> (take-while #(jt/before? % (parse-time s2))
-                   (iterate #(jt/plus % (jt/minutes 1)) (parse-time s1)))
-       (map #(.getMinute %)))
-
-  (update {} :wait (fnil + 0) 2)
-
-  (concat [[1 2 3]] [4 5 6])
-  (apply conj [[[] [1 2 3]] [4 5 6]])
-  (let [[a & remain] '([1 2 3])]
-    (prn a)
-    (empty? remain))
-
   (->> real-input
        ;; Parsing
        (str/split-lines)
