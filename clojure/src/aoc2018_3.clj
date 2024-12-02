@@ -74,16 +74,6 @@
 ;; 위의 예시에서는 ID 3 이 ID 1, 2와 겹치지 않음. 3을 출력.
 ;; 겹치지 않는 영역을 가진 ID를 출력하시오. (문제에서 답이 하나만 나옴을 보장함)
 
-(defn parse-input [input]
-  (->> input
-       (str/split-lines)
-       (map str/trim)
-       (map #(str/split % #"[, :x]"))
-       (map (fn [[idx _ a b _ c d]]
-              {:idx (parse-long (subs idx 1))
-               :start [(parse-long a) (parse-long b)]
-               :rect [(parse-long c) (parse-long d)]}))))
-
 (defn put-coverage [item]
   (-> item
       (assoc :cover (coverages (item :start) (item :rect)))
