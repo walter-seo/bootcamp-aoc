@@ -19,6 +19,7 @@
   (let [diff (abs (- (int a) (int b)))]
     (= 32 diff)))
 
+;; to improve performance for first approach, but it didn't work well.
 (defn reconnect-pair
   "중간에 destroy된 pair의 바로 앞 pair가 destroy된 character의 다음 character를 바라보도록 다시 연결"
   [front rear]
@@ -26,6 +27,7 @@
     (let [before-dropped-pair (first front)
           after-dropped-pair (first rear)
           reconnected-pair [(first before-dropped-pair) (first after-dropped-pair)]]
+      ;; 
       #_(if (or (nil? (first after-dropped-pair)) (nil? (first before-dropped-pair)))
           #dbg (prn "here"))
       (conj (rest front) reconnected-pair))
@@ -45,7 +47,9 @@
                                   (if last? reconnected-acc (conj reconnected-acc (first dropped)))))
       :else (recur (rest remain) (conj acc (first remain))))))
 
+;; this is second approach.
 (defn destroy-pairs-while
+  "destory 조건 함수와 polymer를 받아 매칭되는 character들 재귀적으로 모두 제거"
   [match? polymer]
   (loop [rear (rest polymer)
          front (list (first polymer))]
@@ -59,8 +63,7 @@
 (defn trigger-react
   "주어진 polymer가 반응하지 않을때까지 변형"
   [react-fn polymer]
-  (->> polymer
-       (destroy-pairs-while react-fn)))
+  (destroy-pairs-while react-fn polymer))
 
 (comment
 
@@ -84,7 +87,7 @@
   "polymer에서 주어진 한 문자(unit)를 전부 제외한 상태에서 trigger"
   [polymer unit]
   (->> polymer
-       (remove #{unit (.toUpperCase unit)})
+       (remove #{unit (Character/toUpperCase unit)})
        (trigger-react react?)
        (count)))
 
