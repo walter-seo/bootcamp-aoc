@@ -84,11 +84,11 @@
   "polymer에서 주어진 한 문자(unit)를 전부 제외한 상태에서 trigger"
   [polymer unit]
   (->> polymer
-       (remove #{unit})
+       (remove #{unit (.toUpperCase unit)})
        (trigger-react react?)
        (count)))
 
 (comment
   (->> "abcdefghijklmnopqrstuvwxyz"
        (map #(trigger-with-unit-drop real-input %))
-       (apply max)))
+       (apply min)))
