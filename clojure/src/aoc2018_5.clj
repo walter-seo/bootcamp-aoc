@@ -16,58 +16,64 @@
 (defn react?
   "두 character가 반응하는가?"
   [a b]
-  (let [A (Character/toUpperCase a)
-        B (Character/toUpperCase b)]
-    (= A B)))
+  (let [diff (abs (- (int a) (int b)))]
+    (= 32 diff)))
 
-(defn drop-pairs
+(defn reconnect-pair
+  "중간에 destroy된 pair의 바로 앞 pair가 destroy된 character의 다음 character를 바라보도록 다시 연결"
+  [front rear]
+  (if (and (not-empty front) (not-empty rear))
+    (let [before-dropped-pair (first front)
+          after-dropped-pair (first rear)
+          reconnected-pair [(first before-dropped-pair) (first after-dropped-pair)]]
+      #_(if (or (nil? (first after-dropped-pair)) (nil? (first before-dropped-pair)))
+          #dbg (prn "here"))
+      (conj (rest front) reconnected-pair))
+    front))
+
+(defn destroy-pairs
   [f coll]
   (loop [remain coll
          acc '()]
     (cond
       (empty? remain) (reverse acc)
-      (f (first remain)) (let [dropped (drop 2 remain)]
-                           (recur (rest dropped) (conj acc (first dropped))))
+      (f (first remain)) (let [dropped (drop 2 remain)
+                               last? (empty? dropped)
+                               reconnected-acc (reconnect-pair acc dropped)]
+                           (recur (rest dropped)
+                                  (if last? reconnected-acc (conj reconnected-acc (first dropped)))))
       :else (recur (rest remain) (conj acc (first remain))))))
 
-(defn string->polymer
-  "주어진 string 전처리하여 list of pair 형태로"
-  [polymer-string]
-  (->> polymer-string
-       (partitionv 2 1 [\0]) ;; 마지막 문자는 더미
-       ))
+(defn destroy-pairs-while
+  [match? polymer]
+  (loop [rear (rest polymer)
+         front (list (first polymer))]
+    (cond
+      (empty? rear) (reverse front) ;; end 조건: 끝까지 다 돌았을때
+      ;; react 하면 pair 제거하고 앞뒤 다시 체크
+      (and (not-empty front) (match? (first rear) (first front))) (recur (rest rear) (rest front))
+      ;; 계속 진행
+      :else (recur (rest rear) (conj front (first rear))))))
 
-(defn polymer->string
-  "전처리된 polymer를 문자열로"
+(defn trigger-react
+  "주어진 polymer가 반응하지 않을때까지 변형"
   [polymer]
   (->> polymer
-       (map first)
-       (apply str)))
-
-(defn trigger-once
-  "주어진 polymer가 한번 반응하여 변형"
-  [polymer]
-  (drop-pairs #(apply react? %) polymer))
-
-(defn trigger-all
-  "주어진 polymer가 더이상 반응하지 않을때까지 변형"
-  [polymer]
-  (loop [prev polymer]
-    (let [curr (trigger-once prev)
-          prev-count (count prev)
-          curr-count (count curr)]
-      (if (= prev-count curr-count)
-        curr
-        (recur curr)))))
+       (destroy-pairs-while react?)))
 
 (comment
 
+  (- (int \a) (int \A))
+
   (conj '(1 2 3) '(4 5 6))
 
-  (->> sample-input
-       (string->polymer)
-       (trigger-all)
-       (polymer->string)
+  (Character/toUpperCase nil)
+
+  (->> real-input
+       (trigger-react)
+       (apply str)
+       #_(trigger-all)
+       (count)
        #_#_(partitionv 2 1 [(first sample-input)])
          (map #(apply react? %))))
 
