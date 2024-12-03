@@ -31,6 +31,7 @@
       (conj (rest front) reconnected-pair))
     front))
 
+;; first approach - too low performance
 (defn destroy-pairs
   [f coll]
   (loop [remain coll
@@ -89,4 +90,5 @@
 
 (comment
   (->> "abcdefghijklmnopqrstuvwxyz"
-       (map #(trigger-with-unit-drop real-input %))))
+       (map #(trigger-with-unit-drop real-input %))
+       (apply max)))
