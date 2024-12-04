@@ -13,6 +13,7 @@
 (def sample-input "dabAcCaCBAcCcaDA")
 (def real-input (slurp "resources/day5.input.txt"))
 
+;; int diff로 비교하는게 Character method 호출보다 훨씬 빠름. 왜일까?
 (defn react?
   "두 character가 반응하는가?"
   [a b]
@@ -20,6 +21,7 @@
     (= 32 diff)))
 
 ;; this is second approach.
+;; NOTE: peek/pop 을 써보려고 하니 StringSeq를 IPersistentStack으로 cast할 수 없다는 에러 발생
 (defn reduce-polymer-while
   "destory 조건 함수와 polymer를 받아 매칭되는 character들 재귀적으로 모두 제거"
   [match? polymer]
