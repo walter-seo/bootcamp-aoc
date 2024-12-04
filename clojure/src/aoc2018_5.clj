@@ -19,36 +19,8 @@
   (let [diff (abs (- (int a) (int b)))]
     (= 32 diff)))
 
-;; to improve performance for first approach, but it didn't work well.
-(defn reconnect-pair
-  "중간에 destroy된 pair의 바로 앞 pair가 destroy된 character의 다음 character를 바라보도록 다시 연결"
-  [front rear]
-  (if (and (not-empty front) (not-empty rear))
-    (let [before-dropped-pair (first front)
-          after-dropped-pair (first rear)
-          reconnected-pair [(first before-dropped-pair) (first after-dropped-pair)]]
-      ;; 
-      #_(if (or (nil? (first after-dropped-pair)) (nil? (first before-dropped-pair)))
-          #dbg (prn "here"))
-      (conj (rest front) reconnected-pair))
-    front))
-
-;; first approach - too low performance
-(defn destroy-pairs
-  [f coll]
-  (loop [remain coll
-         acc '()]
-    (cond
-      (empty? remain) (reverse acc)
-      (f (first remain)) (let [dropped (drop 2 remain)
-                               last? (empty? dropped)
-                               reconnected-acc (reconnect-pair acc dropped)]
-                           (recur (rest dropped)
-                                  (if last? reconnected-acc (conj reconnected-acc (first dropped)))))
-      :else (recur (rest remain) (conj acc (first remain))))))
-
 ;; this is second approach.
-(defn destroy-pairs-while
+(defn reduce-polymer-while
   "destory 조건 함수와 polymer를 받아 매칭되는 character들 재귀적으로 모두 제거"
   [match? polymer]
   (loop [rear (rest polymer)
@@ -56,26 +28,19 @@
     (cond
       (empty? rear) (reverse front) ;; end 조건: 끝까지 다 돌았을때
       ;; react 하면 pair 제거하고 앞뒤 다시 체크
-      (and (not-empty front) (match? (first rear) (first front))) (recur (rest rear) (rest front))
+      (and (not-empty front)
+           (match? (first rear) (first front))) (recur (rest rear) (rest front))
       ;; 계속 진행
       :else (recur (rest rear) (conj front (first rear))))))
 
 (defn trigger-react
   "주어진 polymer가 반응하지 않을때까지 변형"
   [react-fn polymer]
-  (destroy-pairs-while react-fn polymer))
+  (reduce-polymer-while react-fn polymer))
 
 (comment
-
-  (- (int \a) (int \A))
-
-  (conj '(1 2 3) '(4 5 6))
-
-  (Character/toUpperCase nil)
-
   (->> real-input
        (trigger-react react?)
-       (apply str)
        (count)))
 
 ;; 파트 2
@@ -91,7 +56,9 @@
        (trigger-react react?)
        (count)))
 
+(def polymer real-input)
+
 (comment
-  (->> "abcdefghijklmnopqrstuvwxyz"
-       (map #(trigger-with-unit-drop real-input %))
+  (->> (range (int \a) (int \z))
+       (map #(trigger-with-unit-drop polymer %))
        (apply min)))
