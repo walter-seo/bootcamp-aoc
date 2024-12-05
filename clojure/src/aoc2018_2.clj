@@ -17,7 +17,9 @@
 ;; 
 ;; 
 
-(defn box-ids-counts-uniq [ids-str]
+(defn box-ids-counts-uniq
+  "주어진 box ids(string) 에서 각 character별 빈도 수를 unique하게 반환 "
+  [ids-str]
   (->> ids-str
        str/trim
        frequencies
@@ -27,12 +29,12 @@
 (defn checksum [input]
   (->> input
        ;; parsing
-       (str/split-lines)
+       str/split-lines
        ;; processing
        (map box-ids-counts-uniq) ; (1) (1 2) (2 3) (3)
        (mapcat #(filter #{2 3} %))
-       (frequencies)
-       (vals)
+       frequencies
+       vals
        ;; aggregate
        (reduce *)))
 (def real-input (slurp "resources/day2.input.txt"))
@@ -72,7 +74,7 @@
   "공통 문자열 반환"
   [a-str b-str]
   (->> (map vector a-str b-str)
-       (filter (fn [[ac bc]] (= ac bc)))
+       (filter (partial apply identical?))
        (map first)
        (apply str)))
 
@@ -87,39 +89,30 @@
 (defn find-correct-box-pair
   "주어진 조합 안에서 correct box pair 찾아서 반환"
   [box-pairs]
-  (->> box-pairs
-       (reduce
-        (fn [_ [item1 item2]]
-          (if (correct-boxes? item1 item2)
-            (reduced (vector item1 item2))
-            nil)))))
+  (loop [[[item1 item2 :as pair] & remain] box-pairs]
+    (cond
+      (empty? pair) nil
+      (correct-boxes? item1 item2) [item1 item2]
+      :else (recur remain))))
 
 (defn find-correct-boxes
   "correct box 쌍 찾고 공통 문자열 반환"
   [words]
-    ;; loop & recur VS reduce & reduced
-    ;;   (loop [[item & remaining] words]
-    ;;       (if ( correct-boxes? item ))
-    ;;     )
-    ;; NOTE
-    ;; It might be poor performance because it causes O(N^2) time complexity.
-    ;; It will return nil when it is not able to find the correct boxes.
   (->>  words
-        (box-pairs)
-        (find-correct-box-pair)
+        box-pairs
+        find-correct-box-pair
         (apply common-letters)))
 
 (defn solve-2 [input]
   (->> input
-    ;; parsing
+       ;; parsing
        str/split-lines
        (map str/trim)
-    ;; processing & aggregate 
+       ;; processing & aggregate 
        find-correct-boxes))
 
-(comment
-  (def sample-input
-    "abcde
+(def sample-input
+  "abcde
     fghij
     klmno
     pqrst
@@ -127,6 +120,7 @@
     axcye
     wvxyz")
 
+(comment
   (solve-2 real-input))
   ;;
 
