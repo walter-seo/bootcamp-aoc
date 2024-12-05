@@ -76,22 +76,18 @@
   [coords]
   (->Data coords (range-of-coords coords) nil))
 
-(defn all-spaces
-  "모든 빈공간 좌표 맵 초기화"
-  [data]
-  (let [[min-x min-y] (get-in data [:coords-range :min])
-        [max-x max-y] (get-in data [:coords-range :max])
-        coords-set (set (:coords data))
-        all-coords (for [x (range min-x max-x)
-                         y (range min-y max-y)
-                         :when (not (contains? coords-set [x y]))]
+(defn all-spaces-map
+  "모든 공간 좌표 맵"
+  [{{[min-x min-y] :min [max-x max-y] :max} :coords-range}]
+  (let [all-coords (for [x (range min-x max-x)
+                         y (range min-y max-y)]
                      [[x y] nil])]
     (into {} all-coords)))
 
 (defn put-all-spaces
-  "data 자료구조에 빈공간 좌표 맵 넣기"
+  "data 자료구조에 공간 좌표 맵 넣기"
   [data]
-  (assoc data :all-spaces (all-spaces data)))
+  (assoc data :all-spaces (all-spaces-map data)))
 
 (defn manht-dist
   "두 좌표 사이 맨하탄 거리"
@@ -107,9 +103,10 @@
     [target-coord min-dist-coords]))
 
 (defn fill-closest-coords
-  "Data의 초기화된 빈공간 맵을 가장 가까운 좌표들 맵으로 value들 채워넣기"
+  "Data의 초기화된 공간 맵을 가장 가까운 좌표들 맵으로 value들 채워넣기"
   [data]
   (->> (:all-spaces data)
+       (remove #(contains? (set (:coords data)) (key %)))
        (map #(find-closest-coord % (:coords data)))
        (assoc data :all-spaces)))
 
@@ -143,7 +140,7 @@
   (for [[x [y z]] sample-list]
     [x [y z]])
 
-  (->> sample-input
+  (->> real-input
        input->coords
        make-data
        put-all-spaces
@@ -174,3 +171,25 @@
 ;; Total distance: 5 + 6 + 4 + 2 + 3 + 10 = 30
 
 ;; N이 10000 미만인 안전한 지역의 사이즈를 구하시오.
+
+(defn dist-sum-from-all-coordinates
+  "target좌표에 대해 모든 존재 좌표들로부터의 거리 합"
+  [target coords]
+  (reduce + (map (partial manht-dist target) coords)))
+
+(def data (->> real-input
+               input->coords
+               make-data
+               put-all-spaces))
+
+(defn count-safe-regions
+  "안전한 지역의 수"
+  [dist-threshold {all-spaces :all-spaces  coords :coords}]
+  (->> all-spaces
+       keys
+       (map #(dist-sum-from-all-coordinates % coords))
+       (filter #(< % dist-threshold))
+       (count)))
+
+(comment
+  (count-safe-regions 10000 data))
