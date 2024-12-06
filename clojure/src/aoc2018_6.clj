@@ -135,18 +135,15 @@
          (apply max)
          inc)))
 
-(comment
-  (def sample-list [[1 [2 3]] [4 [5 6]] [7 [8]]])
-  (for [[x [y z]] sample-list]
-    [x [y z]])
+(def data (->> real-input
+               input->coords
+               make-data
+               put-all-spaces))
 
-  (->> real-input
-       input->coords
-       make-data
-       put-all-spaces
+(comment
+  (->> data
        fill-closest-coords
-       count-max-finite-coords
-       #_count))
+       count-max-finite-coords))
 
 ;; 파트 2
 ;; 안전(safe) 한 지역은 근원지'들'로부터의 맨하탄거리(Manhattan distance, 격자를 상하좌우로만 움직일때의 최단 거리)의 '합'이 N 미만인 지역임.
@@ -177,11 +174,6 @@
   [target coords]
   (reduce + (map (partial manht-dist target) coords)))
 
-(def data (->> real-input
-               input->coords
-               make-data
-               put-all-spaces))
-
 (defn count-safe-regions
   "안전한 지역의 수"
   [dist-threshold {all-spaces :all-spaces  coords :coords}]
@@ -189,7 +181,7 @@
        keys
        (map #(dist-sum-from-all-coordinates % coords))
        (filter #(< % dist-threshold))
-       (count)))
+       count))
 
 (comment
   (count-safe-regions 10000 data))
