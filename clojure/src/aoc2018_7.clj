@@ -84,18 +84,11 @@ Step F must be finished before step E can begin.")
     (let [next-available (find-first-available next-targets prerequisite-map curr-order)
           next-order (conj curr-order next-available)
           next-paths (set/difference (set/union next-targets (path-map next-available)) (set next-order))]
-      #_(when (nil? next-available)
-          (prn next-targets prerequisite-map curr-order))
       (if (empty? next-paths)
         next-order
         (recur next-available next-paths next-order)))))
 
 (comment
-  (sort ["A" "B" "C" "Z" "F" "O" "H"])
-  (sort #{"A" "C" "B"})
-  (set/subset? #{} #{"A"})
-  (concat nil #{"A"})
-
   (as-> real-input v
     (str/split-lines v)
     (map parse-instruction v)
