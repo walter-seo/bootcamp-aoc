@@ -84,17 +84,22 @@ Step F must be finished before step E can begin.")
     (let [next-available (find-first-available next-targets prerequisite-map curr-order)
           next-order (conj curr-order next-available)
           next-paths (set/difference (set/union next-targets (path-map next-available)) (set next-order))]
+      ;; 다음으로 처리할 것이 없으면 end 처리
       (if (empty? next-paths)
         next-order
         (recur next-available next-paths next-order)))))
 
+@(def instructions
+   (->> real-input
+        str/split-lines
+        (map parse-instruction)))
+
 (comment
-  (as-> real-input v
-    (str/split-lines v)
-    (map parse-instruction v)
-    (topological-ordering (path-map v) (prerequisite-map v) (find-begins-and-ends v))
-    (apply str v)
-       ;;
-    ))
+  (let [ins instructions
+        path-map (path-map ins)
+        prerequisite-map (prerequisite-map ins)
+        begin-end (find-begins-and-ends ins)]
+    (apply str
+           (topological-ordering path-map prerequisite-map begin-end))))
 
 ;; Part 2
