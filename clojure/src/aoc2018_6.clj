@@ -50,14 +50,8 @@
 (def real-input (slurp "resources/day6.input.txt"))
 
 (defn str->coord
-  [str]
-  (mapv parse-long (str/split str #", ")))
-
-(defn input->coords
-  [input]
-  (->> input
-       str/split-lines
-       (map str->coord)))
+  [^String line]
+  (mapv parse-long (str/split line #", ")))
 
 (defrecord Data [coords coords-range all-spaces])
 
@@ -98,13 +92,15 @@
 (defn find-closest-coord
   "타겟 좌표에 대해 주어진 좌표들 중 가장 가까운 좌표 목록"
   [[target-coord _] coords]
-  (let [min-dist (apply min (map (partial manht-dist target-coord) coords))
+  (let [min-dist-fun (partial manht-dist target-coord)
+        min-dist (apply min (map min-dist-fun coords))
         min-dist-coords (filterv #(= min-dist (manht-dist target-coord %)) coords)]
     [target-coord min-dist-coords]))
 
 (defn fill-closest-coords
   "Data의 초기화된 공간 맵을 가장 가까운 좌표들 맵으로 value들 채워넣기"
   [data]
+  ;; TODO: 억지로 파이프라인 만들지말고 assoc과 update 분리
   (->> (:all-spaces data)
        (remove #(contains? (set (:coords data)) (key %)))
        (map #(find-closest-coord % (:coords data)))
@@ -114,7 +110,8 @@
   "공간좌표들을 가장 가까운 좌표들로 그룹화. 겹치는 공간은 배제"
   [all-spaces-map]
   (->> all-spaces-map
-       (filter #(= 1 (count (second %))))
+       ;; TODO: 보통 pair vector 대신 맵으로
+       (filter #(= 1 (count (second %)))) ;;
        (group-by (comp first second))
        (map #(vector (key %) (map (partial first) (val %))))))
 
@@ -135,10 +132,11 @@
          (apply max)
          inc)))
 
-(def data (->> real-input
-               input->coords
-               make-data
-               put-all-spaces))
+@(def data (->> real-input
+                str/split-lines
+                (map str->coord)
+                make-data
+                put-all-spaces))
 
 (comment
   (->> data
@@ -172,6 +170,7 @@
 (defn dist-sum-from-all-coordinates
   "target좌표에 대해 모든 존재 좌표들로부터의 거리 합"
   [target coords]
+  ;; TODO: 내부 함수도 let 적극적으로
   (reduce + (map (partial manht-dist target) coords)))
 
 (defn count-safe-regions
