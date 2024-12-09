@@ -35,6 +35,7 @@ acc +6")
        (into {})))
 
 (defn run-operation
+  "명령어 한줄 실행하여 accumulated value와 next index 반환"
   [acc curr-idx operation argument]
   (case operation
     :jmp [acc (+ curr-idx argument)]
@@ -56,14 +57,14 @@ acc +6")
         (next-seen next-idx) [next-acc next-idx]
         :else (recur next-idx next-acc next-seen)))))
 
-(comment
-  (->> real-input
-       parse-instructions-map
-       (accumulate-until-cycle-or-terminate)
-       ;;
-       ))
+(def instruction-map
+  (parse-instructions-map real-input))
 
-;; Part 2
+(comment
+  (accumulate-until-cycle-or-terminate instruction-map))
+
+;; Part 2 
+;; 이제 프로그램을 고쳐보자
 ;; 하나의 nop or jmp operation 만 문제가 있다.
 ;; jmp -> nop 나 nop -> jmp 로 바꾸면 inifite loop가 사라짐
 ;; 문제 해결했을 경우 terminates 시의 accumulator 값 구하기
@@ -73,6 +74,7 @@ acc +6")
   (or (= operation :nop) (= operation :jmp)))
 
 (defn filter-jmp-or-nop-idxs
+  "jmp 나 nop 명령줄만 필터링"
   [instruction-map]
   (keys (filter #(apply jmp-or-nop? (val %)) instruction-map)))
 
@@ -82,6 +84,7 @@ acc +6")
     :jmp [:nop argument]
     :nop [:jmp argument]))
 
+;; FIXME: let - loop - let 중첩의 가독성? 
 (defn fix-program
   "문제된 operation을 고쳐서 나온 simulate 결과값 출력"
   [instruction-map]
