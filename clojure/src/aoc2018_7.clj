@@ -39,7 +39,7 @@ Step F must be finished before step E can begin.")
     [before after]))
 
 (defn group-by-map-by
-  "group-by 하면서 value mapping까지"
+  "Util function: group-by 하면서 value mapping하고 set으로"
   [key-fn value-fn coll]
   (->> (group-by key-fn coll)
        (map (fn [[k v]]
@@ -62,7 +62,9 @@ Step F must be finished before step E can begin.")
 (defn prerequisite-map
   "선행 조건 검사용 맵"
   [instructions]
-  (group-by-map-by second first instructions))
+  (let [all-steps (reduce #(assoc %1 %2 #{}) {} (flatten instructions))
+        required-steps-map (group-by-map-by second first instructions)]
+    (merge all-steps required-steps-map)))
 
 (defn find-first [fun coll]
   (some #(when (fun %) %) coll))
@@ -90,6 +92,7 @@ Step F must be finished before step E can begin.")
         (recur next-available next-paths next-order)))))
 
 @(def instructions
+   "parsed instructions from input"
    (->> real-input
         str/split-lines
         (map parse-instruction)))
@@ -103,3 +106,98 @@ Step F must be finished before step E can begin.")
            (topological-ordering path-map prerequisite-map begin-end))))
 
 ;; Part 2
+;;
+;; tick 하나하나 반복문 돌면서 process 수행
+
+(defn string-char-range
+  "Util function for getting character range"
+  [start end]
+  (map char (range (int start) (inc (int end)))))
+
+(defn step-required-seconds
+  "each steps have their own process minute"
+  [init]
+  (into {}
+        (map-indexed
+         #(vector (str %2) (+ %1 init 1))
+         (string-char-range \A \Z))))
+
+(defn make-workers
+  [count]
+  (repeat count {:status :idle, :curr-step nil, :proc-time 0}))
+
+(defn idle?
+  "is worker idle?"
+  [{status :status}]
+  (= :idle status))
+
+(defn find-next-step
+  "주어진 step set에서 전제조건 만족한, 아직 완료되지 않은 다음 step 찾기. 가능한 다음 step이 없을 수도 있음"
+  [run-steps done-steps prerequisite-map]
+  (let [all-steps (keys prerequisite-map)
+        next-step (some #(when
+                          (and (not (contains? run-steps %))
+                               (set/subset? (prerequisite-map %) done-steps))
+                           %)
+                        all-steps)]
+    next-step))
+
+;; keep in memory
+;; - Current tick
+;; - So far done step set
+;; - In-progress steps and its elapsed time for each worker
+;; worker e.g. {:status :idle :curr-step "A" :proc-sec 13}
+(defn simulate-one-tick
+  "simulate one tick for each workers"
+  [{:keys [workers done-steps] :as curr-data} step-proc-time-set prerequisite-map]
+  ;; for each worker
+  ;; if it has to find a next step (idle status)
+  ;;    find a next step that requires all prerequisite steps (it might not find next step)
+  ;;    add step to run-steps
+  ;; again, for each worker
+  ;; run one tick, inc processing time
+  ;; when current step processing time satisfy required time, 
+  ;;    then update worker status idle
+  ;;    add step to done-steps
+  ;; FIXME: What would be the better structure?
+  (let  [new-step-started-data (reduce
+                                (fn [{:keys [run-steps] :as acc-data} {:keys [status curr-step proc-time]}]
+                                  (let [next-step (if (= status :idle) (find-next-step (:run-steps acc-data) done-steps prerequisite-map) curr-step)
+                                        next-status (if (and (= status :idle) next-step) :running status)
+                                        updated-worker {:status next-status :curr-step next-step :proc-time proc-time}
+                                        updated-run-steps (if next-step (conj run-steps next-step) run-steps)]
+                                    (-> acc-data
+                                        (update :workers #(conj % updated-worker))
+                                        (assoc :run-steps updated-run-steps))))
+                                (assoc curr-data :workers [])
+                                workers)
+         run-tick-data (reduce
+                        (fn [{:keys [done-steps] :as acc-data} {:keys [status curr-step proc-time] :as worker}]
+                          (let [running-time (if (idle? worker) (inc proc-time) proc-time)
+                                step-done? (and (idle? worker) (>= running-time (step-proc-time-set curr-step)))
+                                updated-worker (if step-done?
+                                                 {:status :idle :proc-time 0 :curr-step nil}
+                                                 {:status status :proc-time running-time :curr-step curr-step})
+                                updated-done-steps (if step-done? (conj done-steps curr-step) done-steps)]
+                            (-> acc-data
+                                (update :workers #(conj % updated-worker))
+                                (assoc :done-steps updated-done-steps))))
+                        (assoc new-step-started-data :workers [])
+                        (:workers new-step-started-data))]
+    (update run-tick-data :tick inc)))
+
+(comment
+  (let [ins instructions
+        prerequisite-map (prerequisite-map ins)
+        all-step-set (set (keys prerequisite-map))
+        proc-time-set (step-required-seconds 60)
+        workers (make-workers 5)
+        init-data {:workers workers :tick 0 :run-steps #{} :done-steps #{}}
+        simulate-once-fn #(simulate-one-tick % proc-time-set prerequisite-map)
+        not-all-done? #(not= all-step-set (:done-steps %))]
+    (->> init-data
+         (iterate simulate-once-fn)
+         (take-while not-all-done?)
+         (last)))
+  ;
+  )
