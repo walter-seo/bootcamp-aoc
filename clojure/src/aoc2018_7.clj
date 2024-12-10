@@ -21,15 +21,15 @@
 ;; 역탐색: 타겟에 연결된 지점 순차로 넣고, 그 다음 타겟들 넣을때 역시 available한지 체크하면서 진행
 
 (def sample-input
-  "Step C must be finished before step A can begin.
-Step C must be finished before step F can begin.
-Step A must be finished before step B can begin.
-Step A must be finished before step D can begin.
-Step B must be finished before step E can begin.
-Step D must be finished before step E can begin.
-Step F must be finished before step E can begin.")
+  ["Step C must be finished before step A can begin."
+   "Step C must be finished before step F can begin."
+   "Step A must be finished before step B can begin."
+   "Step A must be finished before step D can begin."
+   "Step B must be finished before step E can begin."
+   "Step D must be finished before step E can begin."
+   "Step F must be finished before step E can begin."])
 
-(def real-input (slurp "resources/day7.input.txt"))
+(def real-input (str/split-lines (slurp "resources/day7.input.txt")))
 
 (defn parse-instruction
   "parsing one line"
@@ -66,8 +66,8 @@ Step F must be finished before step E can begin.")
         required-steps-map (group-by-map-by second first instructions)]
     (merge all-steps required-steps-map)))
 
-(defn find-first [fun coll]
-  (some #(when (fun %) %) coll))
+(defn find-first [pred coll]
+  (some #(when (pred %) %) coll))
 
 (defn find-first-available
   "주어진 가능경로 알파벳순으로 정렬했을때 available 한 첫번째 step 찾기"
@@ -94,7 +94,6 @@ Step F must be finished before step E can begin.")
 @(def instructions
    "parsed instructions from input"
    (->> real-input
-        str/split-lines
         (map parse-instruction)))
 
 (comment
@@ -131,6 +130,12 @@ Step F must be finished before step E can begin.")
   [{status :status}]
   (= :idle status))
 
+(defn- step-done?
+  [worker step-finish-time]
+  (and
+   (not (idle? worker))
+   (>= (:proc-time worker) step-finish-time)))
+
 (defn find-next-step
   "주어진 step set에서 전제조건 만족한, 아직 완료되지 않은 다음 step 찾기. 가능한 다음 step이 없을 수도 있음"
   [run-steps done-steps prerequisite-map]
@@ -142,6 +147,65 @@ Step F must be finished before step E can begin.")
                         all-steps)]
     next-step))
 
+(defn- assign-next-step-if-idle
+  "assign next available step to given worker if it is :idle"
+  [{:keys [status curr-step proc-time] :as worker} run-steps done-steps prerequisite-map]
+  (let [next-step (if (idle? worker) (find-next-step run-steps done-steps prerequisite-map) curr-step)
+        next-status (if (and (idle? worker) next-step) :running status)
+        updated-worker {:status next-status :curr-step next-step :proc-time proc-time}]
+    updated-worker))
+
+(defn- assign-next-step-to-idle-workers
+  "idle한 worker가 있다면 다음 available step을 찾아서 할당하기"
+  [{:keys [workers] :as curr-data} prerequisite-map]
+  (reduce
+   (fn [{:keys [run-steps done-steps] :as acc-data} worker]
+     (let [updated-worker (assign-next-step-if-idle worker run-steps done-steps prerequisite-map)
+           next-step (:curr-step updated-worker)
+           updated-run-steps (if next-step (conj run-steps next-step) run-steps)]
+       (-> acc-data
+           (update :workers #(conj % updated-worker))
+           (assoc :run-steps updated-run-steps))))
+   (assoc curr-data :workers [])
+   workers))
+
+(defn- inc-worker-proc-time
+  "running worker의 proc time 증가"
+  [worker]
+  (if (idle? worker)
+    worker
+    (update worker :proc-time inc)))
+
+(defn- reset-worker
+  "done 상태 worker 초기화"
+  [worker]
+  (-> worker
+      (assoc :status :idle)
+      (assoc :proc-time 0)
+      (assoc :curr-step nil)))
+
+(defn- update-done-steps
+  [done-steps worker step-done?]
+  (if step-done?
+    (conj done-steps (:curr-step worker))
+    done-steps))
+
+(defn- process-one-tick-and-check-finished-worker
+  "for each worker, inc process time and check if finished"
+  [{:keys [workers] :as curr-data} step-proc-time-set]
+  (reduce
+   (fn [{:keys [done-steps] :as acc-data} worker]
+     (let [updated-worker (inc-worker-proc-time worker)
+           step-finish-time (step-proc-time-set (:curr-step updated-worker))
+           step-done? (step-done? worker step-finish-time)
+           updated-done-steps (update-done-steps done-steps updated-worker step-done?)
+           done-checked-worker (if step-done? (reset-worker updated-worker) updated-worker)]
+       (-> acc-data
+           (update :workers #(conj % done-checked-worker))
+           (assoc :done-steps updated-done-steps))))
+   (assoc curr-data :workers [])
+   workers))
+
 ;; keep in memory
 ;; - Current tick
 ;; - So far done step set
@@ -149,7 +213,7 @@ Step F must be finished before step E can begin.")
 ;; worker e.g. {:status :idle :curr-step "A" :proc-sec 13}
 (defn simulate-one-tick
   "simulate one tick for each workers"
-  [{:keys [workers done-steps] :as curr-data} step-proc-time-set prerequisite-map]
+  [curr-data step-proc-time-set prerequisite-map]
   ;; for each worker
   ;; if it has to find a next step (idle status)
   ;;    find a next step that requires all prerequisite steps (it might not find next step)
@@ -159,32 +223,11 @@ Step F must be finished before step E can begin.")
   ;; when current step processing time satisfy required time, 
   ;;    then update worker status idle
   ;;    add step to done-steps
-  ;; FIXME: What would be the better structure?
-  (let  [new-step-started-data (reduce
-                                (fn [{:keys [run-steps] :as acc-data} {:keys [status curr-step proc-time]}]
-                                  (let [next-step (if (= status :idle) (find-next-step (:run-steps acc-data) done-steps prerequisite-map) curr-step)
-                                        next-status (if (and (= status :idle) next-step) :running status)
-                                        updated-worker {:status next-status :curr-step next-step :proc-time proc-time}
-                                        updated-run-steps (if next-step (conj run-steps next-step) run-steps)]
-                                    (-> acc-data
-                                        (update :workers #(conj % updated-worker))
-                                        (assoc :run-steps updated-run-steps))))
-                                (assoc curr-data :workers [])
-                                workers)
-         run-tick-data (reduce
-                        (fn [{:keys [done-steps] :as acc-data} {:keys [status curr-step proc-time] :as worker}]
-                          (let [running-time (if (idle? worker) (inc proc-time) proc-time)
-                                step-done? (and (idle? worker) (>= running-time (step-proc-time-set curr-step)))
-                                updated-worker (if step-done?
-                                                 {:status :idle :proc-time 0 :curr-step nil}
-                                                 {:status status :proc-time running-time :curr-step curr-step})
-                                updated-done-steps (if step-done? (conj done-steps curr-step) done-steps)]
-                            (-> acc-data
-                                (update :workers #(conj % updated-worker))
-                                (assoc :done-steps updated-done-steps))))
-                        (assoc new-step-started-data :workers [])
-                        (:workers new-step-started-data))]
-    (update run-tick-data :tick inc)))
+  (->
+   curr-data
+   (assign-next-step-to-idle-workers prerequisite-map)
+   (process-one-tick-and-check-finished-worker step-proc-time-set)
+   (update :tick inc)))
 
 (comment
   (let [ins instructions
@@ -198,6 +241,4 @@ Step F must be finished before step E can begin.")
     (->> init-data
          (iterate simulate-once-fn)
          (take-while not-all-done?)
-         (last)))
-  ;
-  )
+         (last))))
