@@ -157,7 +157,8 @@
   [workers running-steps done-steps prerequisite-map]
   (let [available-steps (find-next-available-steps running-steps done-steps prerequisite-map)
         {idle-workers true running-workers false} (group-by idle? workers)
-        assigned-idle-workers (map assign-next-step idle-workers (concat available-steps (repeat nil)))
+        available-steps' (concat available-steps (repeat nil))
+        assigned-idle-workers (map assign-next-step idle-workers available-steps')
         merged-workers (concat assigned-idle-workers running-workers)]
     merged-workers))
 
@@ -224,10 +225,10 @@
   (let [ins instructions
         prerequisite-map (prerequisite-map ins)
         all-step-set (set (keys prerequisite-map))
-        proc-time-set (step-required-seconds 60)
+        step-required-time-set (step-required-seconds 60)
         workers (make-workers 5)
         init-data {:workers workers :tick 0 :running-steps #{} :done-steps #{}}
-        simulate-once-fn #(simulate-one-tick % proc-time-set prerequisite-map)
+        simulate-once-fn #(simulate-one-tick % step-required-time-set prerequisite-map)
         not-all-done? #(not= all-step-set (:done-steps %))]
     (->> init-data
          (iterate simulate-once-fn)
