@@ -232,5 +232,5 @@
         not-all-done? #(not= all-step-set (:done-steps %))]
     (->> init-data
          (iterate simulate-once-fn)
-         (take-while not-all-done?)
-         (last))))
+         (drop-while not-all-done?)
+         (first))))
