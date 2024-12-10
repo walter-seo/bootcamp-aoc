@@ -152,14 +152,14 @@
         (assoc :curr-step available-step))
     idle-worker))
 
-(defn- assign-next-step-to-idle-workers
+(defn- assign-idle-workers
   "idle한 worker가 있다면 다음 available step을 찾아서 할당하기"
-  [{:keys [workers running-steps done-steps] :as curr-data} prerequisite-map]
+  [workers running-steps done-steps prerequisite-map]
   (let [available-steps (find-next-available-steps running-steps done-steps prerequisite-map)
         {idle-workers true running-workers false} (group-by idle? workers)
         assigned-idle-workers (map assign-next-step idle-workers (concat available-steps (repeat nil)))
         merged-workers (concat assigned-idle-workers running-workers)]
-    (assoc curr-data :workers merged-workers)))
+    merged-workers))
 
 (defn- acc-running-steps
   "Assigning step 완료된 worker들의 step들을 running step set에 추가"
@@ -192,9 +192,8 @@
 (defn- reset-finished-workers
   "완료된 워커들 idle 상태로 초기화
   {:status :idle :proc-time 0 :curr-step nil}"
-  [{:keys [workers] :as curr-data} step-required-time-set]
-  (let [reset-workers (mapv #(if (step-done? % step-required-time-set) (reset-worker %) %) workers)]
-    (assoc curr-data :workers reset-workers)))
+  [workers step-required-time-set]
+  (mapv #(if (step-done? % step-required-time-set) (reset-worker %) %) workers))
 
 ;; keep in memory
 ;; - Current tick
@@ -203,7 +202,7 @@
 ;; worker e.g. {:status :idle :curr-step "A" :proc-sec 13}
 (defn simulate-one-tick
   "simulate one tick for each workers"
-  [curr-data step-required-time-set prerequisite-map]
+  [{:keys [done-steps running-steps] :as curr-data} step-required-time-set prerequisite-map]
   ;; for each worker
   ;; if it has to find a next step (idle status)
   ;;    find a next step that requires all prerequisite steps (it might not find next step)
@@ -214,12 +213,12 @@
   ;;    then update worker status idle
   ;;    add step to done-steps
   (-> curr-data
-      (assign-next-step-to-idle-workers prerequisite-map)
+      (update :workers assign-idle-workers running-steps done-steps prerequisite-map)
       (acc-running-steps)
       (update :tick inc)
       (update :workers inc-workers-proc-time)
       (acc-done-steps step-required-time-set)
-      (reset-finished-workers step-required-time-set)))
+      (update :workers reset-finished-workers step-required-time-set)))
 
 (comment
   (let [ins instructions
