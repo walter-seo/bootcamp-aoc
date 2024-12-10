@@ -131,50 +131,55 @@
   (= :idle status))
 
 (defn- step-done?
-  [worker step-finish-time]
+  [worker step-finish-time-set]
   (and
    (not (idle? worker))
-   (>= (:proc-time worker) step-finish-time)))
+   (>= (:proc-time worker) (step-finish-time-set (:curr-step worker)))))
 
-(defn find-next-step
-  "주어진 step set에서 전제조건 만족한, 아직 완료되지 않은 다음 step 찾기. 가능한 다음 step이 없을 수도 있음"
-  [run-steps done-steps prerequisite-map]
-  (let [all-steps (keys prerequisite-map)
-        next-step (some #(when
-                          (and (not (contains? run-steps %))
-                               (set/subset? (prerequisite-map %) done-steps))
-                           %)
-                        all-steps)]
-    next-step))
+(defn find-next-available-steps
+  [running-steps done-steps prerequisite-map]
+  (filter #(and
+            (not (contains? running-steps %))
+            (set/subset? (prerequisite-map %) done-steps))
+          (keys prerequisite-map)))
 
-(defn- assign-next-step-if-idle
+(defn- assign-next-step
   "assign next available step to given worker if it is :idle"
-  [{:keys [status curr-step proc-time] :as worker} run-steps done-steps prerequisite-map]
-  (let [next-step (if (idle? worker) (find-next-step run-steps done-steps prerequisite-map) curr-step)
-        next-status (if (and (idle? worker) next-step) :running status)
-        updated-worker {:status next-status :curr-step next-step :proc-time proc-time}]
-    updated-worker))
+  [idle-worker available-step]
+  (if available-step
+    (-> idle-worker
+        (assoc :status :running)
+        (assoc :curr-step available-step))
+    idle-worker))
 
 (defn- assign-next-step-to-idle-workers
   "idle한 worker가 있다면 다음 available step을 찾아서 할당하기"
-  [{:keys [workers] :as curr-data} prerequisite-map]
-  (reduce
-   (fn [{:keys [run-steps done-steps] :as acc-data} worker]
-     (let [updated-worker (assign-next-step-if-idle worker run-steps done-steps prerequisite-map)
-           next-step (:curr-step updated-worker)
-           updated-run-steps (if next-step (conj run-steps next-step) run-steps)]
-       (-> acc-data
-           (update :workers #(conj % updated-worker))
-           (assoc :run-steps updated-run-steps))))
-   (assoc curr-data :workers [])
-   workers))
+  [{:keys [workers running-steps done-steps] :as curr-data} prerequisite-map]
+  (let [available-steps (find-next-available-steps running-steps done-steps prerequisite-map)
+        {idle-workers true running-workers false} (group-by idle? workers)
+        assigned-idle-workers (map assign-next-step idle-workers (concat available-steps (repeat nil)))
+        merged-workers (concat assigned-idle-workers running-workers)]
+    (assoc curr-data :workers merged-workers)))
 
-(defn- inc-worker-proc-time
-  "running worker의 proc time 증가"
-  [worker]
-  (if (idle? worker)
-    worker
-    (update worker :proc-time inc)))
+(defn- acc-running-steps
+  "Assigning step 완료된 worker들의 step들을 running step set에 추가"
+  [{:keys [workers running-steps] :as curr-data}]
+  (let [curr-steps (set (filter identity (map :curr-step workers)))
+        updated-running-steps (set/union running-steps curr-steps)]
+    (assoc curr-data :running-steps updated-running-steps)))
+
+(defn- inc-workers-proc-time
+  "running 워커들에 한해서 process time increase"
+  [workers]
+  (mapv #(if (idle? %) % (update % :proc-time inc)) workers))
+
+(defn- acc-done-steps
+  "worker들 검사하여 done step set 누적 업데이트"
+  [{:keys [done-steps workers] :as curr-data} step-required-time-set]
+  (let [done-workers (filter #(step-done? % step-required-time-set) workers)
+        current-done-steps (set (map :curr-step done-workers))
+        accumulated-done-steps (set/union done-steps current-done-steps)]
+    (assoc curr-data :done-steps accumulated-done-steps)))
 
 (defn- reset-worker
   "done 상태 worker 초기화"
@@ -184,27 +189,12 @@
       (assoc :proc-time 0)
       (assoc :curr-step nil)))
 
-(defn- update-done-steps
-  [done-steps worker step-done?]
-  (if step-done?
-    (conj done-steps (:curr-step worker))
-    done-steps))
-
-(defn- process-one-tick-and-check-finished-worker
-  "for each worker, inc process time and check if finished"
-  [{:keys [workers] :as curr-data} step-proc-time-set]
-  (reduce
-   (fn [{:keys [done-steps] :as acc-data} worker]
-     (let [updated-worker (inc-worker-proc-time worker)
-           step-finish-time (step-proc-time-set (:curr-step updated-worker))
-           step-done? (step-done? worker step-finish-time)
-           updated-done-steps (update-done-steps done-steps updated-worker step-done?)
-           done-checked-worker (if step-done? (reset-worker updated-worker) updated-worker)]
-       (-> acc-data
-           (update :workers #(conj % done-checked-worker))
-           (assoc :done-steps updated-done-steps))))
-   (assoc curr-data :workers [])
-   workers))
+(defn- reset-finished-workers
+  "완료된 워커들 idle 상태로 초기화
+  {:status :idle :proc-time 0 :curr-step nil}"
+  [{:keys [workers] :as curr-data} step-required-time-set]
+  (let [reset-workers (mapv #(if (step-done? % step-required-time-set) (reset-worker %) %) workers)]
+    (assoc curr-data :workers reset-workers)))
 
 ;; keep in memory
 ;; - Current tick
@@ -213,21 +203,23 @@
 ;; worker e.g. {:status :idle :curr-step "A" :proc-sec 13}
 (defn simulate-one-tick
   "simulate one tick for each workers"
-  [curr-data step-proc-time-set prerequisite-map]
+  [curr-data step-required-time-set prerequisite-map]
   ;; for each worker
   ;; if it has to find a next step (idle status)
   ;;    find a next step that requires all prerequisite steps (it might not find next step)
-  ;;    add step to run-steps
+  ;;    add step to running-steps
   ;; again, for each worker
   ;; run one tick, inc processing time
   ;; when current step processing time satisfy required time, 
   ;;    then update worker status idle
   ;;    add step to done-steps
-  (->
-   curr-data
-   (assign-next-step-to-idle-workers prerequisite-map)
-   (process-one-tick-and-check-finished-worker step-proc-time-set)
-   (update :tick inc)))
+  (-> curr-data
+      (assign-next-step-to-idle-workers prerequisite-map)
+      (acc-running-steps)
+      (update :tick inc)
+      (update :workers inc-workers-proc-time)
+      (acc-done-steps step-required-time-set)
+      (reset-finished-workers step-required-time-set)))
 
 (comment
   (let [ins instructions
@@ -235,7 +227,7 @@
         all-step-set (set (keys prerequisite-map))
         proc-time-set (step-required-seconds 60)
         workers (make-workers 5)
-        init-data {:workers workers :tick 0 :run-steps #{} :done-steps #{}}
+        init-data {:workers workers :tick 0 :running-steps #{} :done-steps #{}}
         simulate-once-fn #(simulate-one-tick % proc-time-set prerequisite-map)
         not-all-done? #(not= all-step-set (:done-steps %))]
     (->> init-data
