@@ -70,17 +70,13 @@
        (map parse-timestamp)
        (sort)
        ;; Processing
-       (partition-by-shifts)
-       (map calc-guard-shift)
+       (partition-by-shifts) ;; [[#object[java.time] "Guard #.."] ... ]
+       (map to-guard-id-with-sleep-timeline) ;; [{:guard-id 3 :sleep-timeline [[start-time end-time] ...]}]
        (filter #(not-empty (% :sleep-timeline)))
-       (convert-guard-sleep-sections)
+       (convert-guard-sleep-sections) ;; {1297 {0 1, 2 1, ...} .. }
        ;; Aggregates
-       (apply max-key
-              #(->> %
-                    val
-                    vals
-                    (reduce +)))
-       (apply calc-answer-part-one)))
+       (find-most-sleeper)
+       (apply calc-answer)))
 
 ;; Functions
 
@@ -132,8 +128,8 @@
         [:awake nil []])
        (last)))
 
-(defn calc-guard-shift
-  "one shift timeline 계산하여 [start end] 쌍으로 변환"
+(defn to-guard-id-with-sleep-timeline
+  "한 가드의 sleep timeline 계산하여 [start end] 쌍으로 변환, 맵 자료구조로"
   [[[_time desc] & guard-schedules]]
   (let [guard-id (->> desc
                       (re-find #"#(\d+)")
@@ -156,7 +152,26 @@
         updated-map
         (recur more updated-map)))))
 
-(defn calc-answer-part-one
+(defn find-most-sleeper
+  [guard-sleep-minutes]
+  (apply max-key
+         #(->> %
+               val
+               vals
+               (reduce +))
+         guard-sleep-minutes))
+
+(defn find-most-frequent-at-the-moment-sleeper
+  "가장 특정 minute에 자주 잠들었던 경비 data 반환"
+  [guard-sleep-minutes]
+  (->> guard-sleep-minutes
+       (apply max-key
+              #(->> %
+                    val
+                    (apply max-key val)
+                    (val)))))
+
+(defn calc-answer
   "주어진 경비 ID와 minute map의 가장 빈번하게 잠든 분을 곱한 값 반환"
   [guard-id minute-map]
   (* guard-id (key (apply max-key val minute-map))))
@@ -174,13 +189,9 @@
        (sort)
        ;; Processing
        (partition-by-shifts)
-       (map calc-guard-shift)
-       (filter #(not-empty (% :sleep-timeline)))
-       (convert-guard-sleep-sections)
+       (map to-guard-id-with-sleep-timeline)
+       (filter #(seq (% :sleep-timeline)))
+       (convert-guard-sleep-sections) ;; {1297 {0 1, 2 1, ...} .. }
        ;; Aggregates
-       (apply max-key
-              #(->> %
-                    val
-                    (apply max-key val)
-                    (val)))
-       (apply calc-answer-part-one)))
+       (find-most-frequent-at-the-moment-sleeper)
+       (apply calc-answer)))

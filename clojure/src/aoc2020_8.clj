@@ -8,31 +8,23 @@
 ;; Part 1
 
 (def sample-input
-  "nop +0
-acc +1
-jmp +4
-acc +3
-jmp -3
-acc -99
-acc +1
-jmp -4
-acc +6")
+  ["nop +0"
+   "acc +1"
+   "jmp +4"
+   "acc +3"
+   "jmp -3"
+   "acc -99"
+   "acc +1"
+   "jmp -4"
+   "acc +6"])
 
-(def real-input (slurp "resources/2020/day8.input.txt"))
+(def real-input (str/split-lines (slurp "resources/2020/day8.input.txt")))
 
 (defn to-instruction
   "line 한줄 instruction pair로"
   [line]
   (let [[operation argument] (str/split line #" " 2)]
     [(keyword operation) (parse-long argument)]))
-
-(defn parse-instructions-map
-  "input 전체를 instruction map으로"
-  [input]
-  (->> input
-       str/split-lines
-       (map-indexed #(vector %1 (to-instruction %2)))
-       (into {})))
 
 (defn run-operation
   "명령어 한줄 실행하여 accumulated value와 next index 반환"
@@ -53,20 +45,22 @@ acc +6")
           [next-acc next-idx] (run-operation acc curr-idx op arg)
           next-seen (conj seen curr-idx)]
       (cond
+        ;; 정상 input 아닐때 예외 조건 체크
         (> next-idx max-idx) [next-acc :term]
         (next-seen next-idx) [next-acc next-idx]
         :else (recur next-idx next-acc next-seen)))))
 
-(def instruction-map
-  (parse-instructions-map real-input))
-
+@(def instruction-map
+   (->> sample-input
+        (map-indexed #(vector %1 (to-instruction %2)))
+        (into {})))
 (comment
   (accumulate-until-cycle-or-terminate instruction-map))
 
 ;; Part 2 
 ;; 이제 프로그램을 고쳐보자
 ;; 하나의 nop or jmp operation 만 문제가 있다.
-;; jmp -> nop 나 nop -> jmp 로 바꾸면 inifite loop가 사라짐
+;; jmp -> nop 나 nop -> jmp 로 바꾸면 infinite loop가 사라짐
 ;; 문제 해결했을 경우 terminates 시의 accumulator 값 구하기
 
 (defn jmp-or-nop?
@@ -89,6 +83,8 @@ acc +6")
   "문제된 operation을 고쳐서 나온 simulate 결과값 출력"
   [instruction-map]
   (let [target-operations (filter-jmp-or-nop-idxs instruction-map)]
+    ;; 예외 처리: 
+    ;; alter: map - filter
     (loop [[target-idx & remain] target-operations]
       (let [modified-instruction-map (update instruction-map target-idx switch-jmp-nop)
             [acc last-idx] (accumulate-until-cycle-or-terminate modified-instruction-map)]
@@ -97,7 +93,6 @@ acc +6")
           (recur remain))))))
 
 (comment
-  (->> real-input
-       parse-instructions-map
+  (->> instruction-map
        fix-program))
 
