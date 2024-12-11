@@ -155,24 +155,24 @@ pid:3556412378 byr:2007
 
 (def height-cm
   (s/and
-   (s/conformer #(last (re-find #"(\d+)cm" %)))
+   (s/conformer #(last (re-find #"^(\d+)cm$" %)))
    string-to-int
    #(and (>= % 150) (<= % 193))))
 
 (def height-in
   (s/and
-   (s/conformer #(last (re-find #"(\d+)in")))
+   (s/conformer #(last (re-find #"^(\d+)in$" %)))
    string-to-int
    #(and (>= % 59) (<= % 76))))
 
 (def hair-color-regex #"^#[a-f0-9]{6}$")
 (def eye-colors #{"amb" "blu" "brn" "gry" "grn" "hzl" "oth"})
-(def passport-id-regex #"\d{9}")
+(def passport-id-regex #"^\d{9}$")
 
 (s/def ::birth-year (s/and string-to-int #(and (>= % 1920) (<= % 2002))))
 (s/def ::iss-year (s/and string-to-int #(and (>= % 2010) (<= % 2020))))
 (s/def ::exp-year (s/and string-to-int #(and (>= % 2020) (<= % 2030))))
-(s/def ::height (s/and string? (s/or height-cm height-in)))
+(s/def ::height (s/and string? (s/or :cm height-cm :in height-in)))
 (s/def ::eye-color eye-colors)
 (s/def ::hair-color (s/and string? #(re-matches hair-color-regex %)))
 (s/def ::pass-id #(re-matches passport-id-regex %))
@@ -188,6 +188,7 @@ pid:3556412378 byr:2007
    "ecl" :eye-color "cid" :country-id})
 
 (defn passport-keys?
+  "check if given passport has all required keys"
   [passport]
   (every? (set (keys passport)) [:iss-year
                                  :exp-year
@@ -197,27 +198,26 @@ pid:3556412378 byr:2007
                                  :pass-id
                                  :height]))
 
-(defn cast-passport-keys
-  "convert list to map"
+(defn cast-passport-map
+  "convert list to map with converted keys.
+  e.g. {:pass-id \"123412341\" :iss-year \"2011\" .... }"
   [kv-list]
   (update-keys (into {} kv-list)
                passport-key-map))
 
+;; Part 1
+;; 여기는 spec 없이 required key 존재 여부만 검사
 (comment
   (->> real-input
-       (map cast-passport-keys)
+       (map cast-passport-map)
        (filter #(s/valid? passport-keys? %))
        (count)))
 
 ;; Part 2
 ;;
-;;
 (comment
-  (re-find #"(\d+)cm" "176cm")
-  (s/conform height-cm "140cm")
-
   (->> real-input
-       (map cast-passport-keys)
+       (map cast-passport-map)
        (map (partial s/conform ::passport))
        (remove s/invalid?)
        (count)))
