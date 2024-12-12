@@ -34,11 +34,16 @@
 (defn find-sum-set-using-map
   [n x coll]
   (let [sum-group (group-by sum (combo/combinations coll (- n 1)))
-        add-item-each #(map (fn [l] (conj (set l) %2)) %1)]
+        to-item-map (fn [item] {:item item :rest (sum-group (- x item))})
+        remove-duplicates (fn [{:keys [item rest]}]
+                            {:item item :rest (remove #(some (partial = item) %) rest)})
+        add-item-each #(map (fn [l] (conj l %2)) %1)]
     (->> coll
-         (map #(add-item-each (sum-group (- x %)) %))
-         (remove empty?)
-         (flatten)
+         (map to-item-map)
+         (map remove-duplicates)
+         (filter :rest)
+         (mapcat #(add-item-each (% :rest) (% :item)))
+         (map set)
          (distinct))))
 
 (comment
@@ -52,7 +57,7 @@
 (comment
   (group-by sum (combo/combinations real-input-numbers 2))
 
-  (find-sum-set-using-map 3 2025 real-input-numbers)
+  (find-sum-set-using-map 2 2020 real-input-numbers)
 
   (let [res-sets (find-sum-set-by-comb 3 2025 real-input-numbers)]
     res-sets
