@@ -32,6 +32,7 @@
           (combo/combinations coll n)))
 
 (defn find-sum-set-using-map
+  "경우의 수 탐색을 map으로 하여 최적화한 version"
   [n x coll]
   (let [sum-group (group-by sum (combo/combinations coll (- n 1)))
         to-item-map (fn [item] {:item item :rest (sum-group (- x item))})
@@ -48,8 +49,8 @@
 
 (comment
   (let [res-pairs (find-sum-pairs 2020 real-input-numbers)]
-    res-pairs
-    #_(map product (seq res-pairs))))
+    (prn res-pairs)
+    (map product (seq res-pairs))))
 
 ;; Part 2
 ;; 3개 숫자 합이 2020
@@ -60,5 +61,5 @@
   (find-sum-set-using-map 2 2020 real-input-numbers)
 
   (let [res-sets (find-sum-set-by-comb 3 2025 real-input-numbers)]
-    res-sets
-    #_(map product res-sets)))
+    (prn res-sets)
+    (map product res-sets)))
