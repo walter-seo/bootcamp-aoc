@@ -1,3 +1,4 @@
 {:paths
  ["src", "resources"]
- :deps {clojure.java-time/clojure.java-time {:mvn/version "1.4.3"}}}
+ :deps {clojure.java-time/clojure.java-time {:mvn/version "1.4.3"}
+        org.clojure/math.combinatorics {:mvn/version "0.3.0"}}}
