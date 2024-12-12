@@ -41,8 +41,7 @@ ecl:brn hgt:182cm pid:021572410 eyr:2020 byr:1992 cid:277
 
 hgt:59cm ecl:zzz
 eyr:2038 hcl:74454a iyr:2023
-pid:3556412378 byr:2007
-")
+pid:3556412378 byr:2007")
 
 (defn raw-parser
   [raw-input]
@@ -148,15 +147,46 @@ pid:3556412378 byr:2007
 (def real-input
   (raw-parser (slurp "resources/2020/day4.input.txt")))
 
-;; clojure.spec declaration
+;; Casting
+(def passport-key-map
+  {"byr" :birth-year
+   "iyr" :iss-year
+   "eyr" :exp-year
+   "pid" :pass-id
+   "hcl" :hair-color
+   "hgt" :height
+   "ecl" :eye-color
+   "cid" :country-id})
+
+(defn cast-passport-map
+  "convert list to map with converted keys.
+  e.g. {:pass-id \"123412341\" :iss-year \"2011\" .... }"
+  [kv-list]
+  (update-keys (into {} kv-list)
+               passport-key-map))
+
+;; Part 1 Spec
+(s/def ::passport-suspicious
+  (s/keys :req-un [:ss/birth-year :ss/iss-year :ss/exp-year
+                   :ss/height :ss/eye-color :ss/pass-id :ss/hair-color]
+          :opt-un [:ss/country-id]))
+
+;; Part 1
+(comment
+  (->> part-one-sample
+       (map cast-passport-map)
+       (map (partial s/conform ::passport-suspicious))
+       #_(count)))
+
+;; Part 2 Spec
 
 (def string-to-int
   (s/conformer #(try (Integer. %) (catch Exception _ ::s/invalid))))
 
 (def height-cm
   (s/and
-   (s/conformer #(last (re-find #"^(\d+)cm$" %)))
-   string-to-int
+   (s/conformer #(second (re-find #"^(\d+)cm$" %))) ;; "176cm"
+   string-to-int ;; 176
    #(and (>= % 150) (<= % 193))))
 
 (def height-in
@@ -172,7 +202,7 @@ pid:3556412378 byr:2007
 (s/def ::birth-year (s/and string-to-int #(and (>= % 1920) (<= % 2002))))
 (s/def ::iss-year (s/and string-to-int #(and (>= % 2010) (<= % 2020))))
 (s/def ::exp-year (s/and string-to-int #(and (>= % 2020) (<= % 2030))))
-(s/def ::height (s/and string? (s/or :cm height-cm :in height-in)))
+(s/def ::height (s/and string? (s/or :cm height-cm :in height-in))) ;; [:cm 176]
 (s/def ::eye-color eye-colors)
 (s/def ::hair-color (s/and string? #(re-matches hair-color-regex %)))
 (s/def ::pass-id #(re-matches passport-id-regex %))
@@ -181,44 +211,12 @@ pid:3556412378 byr:2007
   (s/keys :req-un [::birth-year ::iss-year ::exp-year
                    ::height ::eye-color ::pass-id ::hair-color]
           :opt-un [::country-id]))
-
-(def passport-key-map
-  {"byr" :birth-year "iyr" :iss-year "eyr" :exp-year
-   "pid" :pass-id "hcl" :hair-color "hgt" :height
-   "ecl" :eye-color "cid" :country-id})
-
-(defn passport-keys?
-  "check if given passport has all required keys"
-  [passport]
-  (every? (set (keys passport)) [:iss-year
-                                 :exp-year
-                                 :hair-color
-                                 :birth-year
-                                 :eye-color
-                                 :pass-id
-                                 :height]))
-
-(defn cast-passport-map
-  "convert list to map with converted keys.
-  e.g. {:pass-id \"123412341\" :iss-year \"2011\" .... }"
-  [kv-list]
-  (update-keys (into {} kv-list)
-               passport-key-map))
-
-;; Part 1
-;; 여기는 spec 없이 required key 존재 여부만 검사
-(comment
-  (->> real-input
-       (map cast-passport-map)
-       (filter #(s/valid? passport-keys? %))
-       (count)))
-
 ;; Part 2
 ;;
 (comment
   (->> real-input
        (map cast-passport-map)
-       (map (partial s/conform ::passport))
+       (map #(s/conform ::passport %))
        (remove s/invalid?)
        (count)))
 
