@@ -123,18 +123,20 @@
     {:guard-id guard-id
      :sleep-timeline (aggregate-sleep-timelines guard-schedules)}))
 
-(defn aggregate-for-each-guard-slept-minutes-freq
-  "각 guard별 sleep minutes 맵으로 변환"
+(defn sleep-timeline->sleep-minutes-freq
+  "{:start :end} 맵으로 이루어진 timeline list를 minute별 frequencies 맵으로"
+  [sleep-timeline]
+  (->> sleep-timeline
+       (map #(frequencies (iterate-minutes %)))
+       (reduce #(merge-with + %1 %2))))
+
+(defn aggregate-guard-sleep-minutes-freq
+  "guard timeline list에서 guard id별로 sleep-minutes-freq만 집계"
   [guard-timelines]
-  (loop [[{:keys [guard-id sleep-timeline]} & more] guard-timelines
-         guard-sleep-minutes-count {}]
-    (let [sleeping-minutes-map  (->> sleep-timeline
-                                     (map #(frequencies (iterate-minutes %)))
-                                     (reduce #(merge-with + %1 %2)))
-          updated-map           (update guard-sleep-minutes-count guard-id #(merge-with + %1 %2) sleeping-minutes-map)]
-      (if (empty? more)
-        updated-map
-        (recur more updated-map)))))
+  (reduce (fn [acc {:keys [guard-id sleep-minutes-freq]}]
+            (update acc guard-id #(merge-with + %1 %2) sleep-minutes-freq))
+          {}
+          guard-timelines))
 
 (defn- total-sleep [[_guard-id guard-sleep-minutes]]
   (->> guard-sleep-minutes
@@ -160,8 +162,12 @@
        (partition-by-guard-shifts) ;; [[#object[java.time] "Guard #.."] ... ]
        (map ->guard-id-with-sleep-timeline) ;; [{:guard-id 3 :sleep-timeline [{:start start-time :end end-time} ...]}]
        (remove (comp empty? :sleep-timeline))
-       (aggregate-for-each-guard-slept-minutes-freq) ;; {1297 {0 1, 2 1, ...} .. }
+       (map (fn [guard]
+              (assoc guard
+                     :sleep-minutes-freq
+                     (sleep-timeline->sleep-minutes-freq (:sleep-timeline guard)))))
        ;; Aggregates
+       (aggregate-guard-sleep-minutes-freq) ;; {1297 {0 1, 2 1, ...} .. }
        (find-most-sleeper)
        (apply guard->answer)))
 
@@ -181,8 +187,12 @@
        ;; Processing
        (partition-by-guard-shifts)
        (map ->guard-id-with-sleep-timeline) ;; shift timelines list
-       (filter #(seq (% :sleep-timeline)))
+       (remove (comp empty? :sleep-timeline))
+       (map (fn [guard]
+              (assoc guard
+                     :sleep-minutes-freq
+                     (sleep-timeline->sleep-minutes-freq (:sleep-timeline guard)))))
        ;; Aggregates
-       (aggregate-for-each-guard-slept-minutes-freq) ;; {1297 {0 1, 2 1, ...} .. }
+       (aggregate-guard-sleep-minutes-freq) ;; {1297 {0 1, 2 1, ...} .. }
        (apply max-key most-frequently-slept-minute)
        (apply guard->answer)))
