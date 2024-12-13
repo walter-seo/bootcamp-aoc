@@ -28,11 +28,16 @@
 
 ;; 여기서 XX는 ID 1, 2, 3의 영역이 두번 이상 겹치는 지역.
 ;; 겹치는 지역의 갯수를 출력하시오. (위의 예시에서는 4)
-(def sample-input "#1 @ 1,3: 4x4
+(def raw-input "#1 @ 1,3: 4x4
                      #2 @ 3,1: 4x4
                      #3 @ 5,5: 2x2")
 
-(def real-input (slurp "resources/day3.input.txt"))
+(def sample-input
+  ["#1 @ 1,3: 4x4"
+   "#2 @ 3,1: 4x4"
+   "#3 @ 5,5: 2x2"])
+
+(def real-input (map str/trim (str/split-lines (slurp "resources/day3.input.txt"))))
 
 (defn coverages
   "왼쪽 위 좌표와 (width, height)를 받아 coverage 좌표 목록 반환"
@@ -58,14 +63,14 @@
        ;; aggregate
        (apply merge-with +) ; => {[4 3] 2, [2 3] 1, ...}
        (vals)
-       (filter (partial <= 2))
+       (filter #(>= % 2))
        (count)))
 
+(def lines real-input)
+
 (comment
-  (->> sample-input
+  (->> lines
        ;; parsing
-       (str/split-lines)
-       (map str/trim)
        (map parse-claim) ; => ({:idx 1, :start [1 3], :rect [4 4]} ..)
        ;; process & aggregate
        (count-overlap-covers)))
@@ -113,10 +118,8 @@
      coll)))
 
 (comment
-  (->> real-input
+  (->> lines
        ;; parsing
-       (str/split-lines)
-       (map str/trim)
        (map parse-claim)
        (map put-coverage)
        ;; processing & aggregate
