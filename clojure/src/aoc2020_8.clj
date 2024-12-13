@@ -20,7 +20,7 @@
 
 (def real-input (str/split-lines (slurp "resources/2020/day8.input.txt")))
 
-(defn to-instruction
+(defn line->instruction
   "line 한줄 instruction pair로"
   [line]
   (let [[operation argument] (str/split line #" " 2)]
@@ -35,25 +35,25 @@
     [acc (inc curr-idx)]))
 
 (defn accumulate-until-cycle-or-terminate
-  "첫번째로 두번 실행되는 instruction 나오거나 종료될때까지 simulate하고 acc 반환"
+  "첫번째로 중복 실행되는 instruction 나오거나 종료될때까지 simulate하고 acc 반환"
   [instruction-map]
   (loop [curr-idx 0
          acc 0
          seen #{}]
-    (let [max-idx (apply max (keys instruction-map))
-          [op arg] (instruction-map curr-idx)
+    (let [max-idx             (apply max (keys instruction-map))
+          [op arg]            (instruction-map curr-idx)
           [next-acc next-idx] (run-operation acc curr-idx op arg)
-          next-seen (conj seen curr-idx)]
+          next-seen           (conj seen curr-idx)]
       (cond
         ;; 정상 input 아닐때 예외 조건 체크
         (> next-idx max-idx) [next-acc :term]
         (next-seen next-idx) [next-acc next-idx]
         :else (recur next-idx next-acc next-seen)))))
 
-@(def instruction-map
-   (->> sample-input
-        (map-indexed #(vector %1 (to-instruction %2)))
-        (into {})))
+(def instruction-map
+  (->> real-input
+       (map-indexed #(vector %1 (line->instruction %2)))
+       (into {})))
 (comment
   (accumulate-until-cycle-or-terminate instruction-map))
 
@@ -92,6 +92,5 @@
           (recur remain))))))
 
 (comment
-  (->> instruction-map
-       fix-program))
+  (fix-program instruction-map))
 
