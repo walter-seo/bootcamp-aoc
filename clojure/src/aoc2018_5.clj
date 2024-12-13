@@ -24,19 +24,24 @@
 ;; NOTE: peek/pop 을 써보려고 하니 StringSeq를 IPersistentStack으로 cast할 수 없다는 에러 발생
 (defn reduce-polymer-while
   "destory 조건 함수와 polymer를 받아 매칭되는 character들 재귀적으로 모두 제거"
-  [match? polymer]
-  (loop [rear (rest polymer)
-         front (list (first polymer))]
+  [react-fn polymer]
+  (loop [rear   (rest polymer)
+         front  (list (first polymer))]
     (cond
-      (empty? rear) (reverse front) ;; end 조건: 끝까지 다 돌았을때
-      ;; react 하면 pair 제거하고 앞뒤 다시 체크
-      (and (not-empty front)
-           (match? (first rear) (first front))) (recur (rest rear) (rest front))
-      ;; 계속 진행
-      :else (recur (rest rear) (conj front (first rear))))))
+      (empty? rear)
+      #_=> (reverse front) ;; end 조건: 끝까지 다 돌았을때
+
+      ;; 현재 pair가 반응하면 pair 제거하고 앞뒤 다시 체크
+      (and (seq front)
+           (react-fn (first rear) (first front)))
+      #_=> (recur (rest rear) (rest front))
+
+      ;; 계속 진행. rear -> front 하나 이동
+      :else
+      #_=> (recur (rest rear) (conj front (first rear))))))
 
 (defn trigger-react
-  "주어진 polymer가 반응하지 않을때까지 변형"
+  "trigger하여 주어진 polymer가 반응하지 않을때까지 변형"
   [react-fn polymer]
   (reduce-polymer-while react-fn polymer))
 
