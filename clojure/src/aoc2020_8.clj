@@ -78,7 +78,6 @@
     :jmp [:nop argument]
     :nop [:jmp argument]))
 
-;; FIXME: let - loop - let 중첩의 가독성? 
 (defn fix-program
   "문제된 operation을 고쳐서 나온 simulate 결과값 출력"
   [instruction-map]
