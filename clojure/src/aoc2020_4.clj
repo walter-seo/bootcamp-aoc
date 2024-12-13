@@ -187,21 +187,21 @@ pid:3556412378 byr:2007")
   (s/and
    (s/conformer #(second (re-find #"^(\d+)cm$" %))) ;; "176cm"
    string-to-int ;; 176
-   #(and (>= % 150) (<= % 193))))
+   #(<= 150 % 193)))
 
 (def height-in
   (s/and
    (s/conformer #(last (re-find #"^(\d+)in$" %)))
    string-to-int
-   #(and (>= % 59) (<= % 76))))
+   #(<= 59 % 76)))
 
 (def hair-color-regex #"^#[a-f0-9]{6}$")
 (def eye-colors #{"amb" "blu" "brn" "gry" "grn" "hzl" "oth"})
 (def passport-id-regex #"^\d{9}$")
 
-(s/def ::birth-year (s/and string-to-int #(and (>= % 1920) (<= % 2002))))
-(s/def ::iss-year (s/and string-to-int #(and (>= % 2010) (<= % 2020))))
-(s/def ::exp-year (s/and string-to-int #(and (>= % 2020) (<= % 2030))))
+(s/def ::birth-year (s/and string-to-int #(<= 1920 % 2002)))
+(s/def ::iss-year (s/and string-to-int #(<= 2010 % 2020)))
+(s/def ::exp-year (s/and string-to-int #(<= 2020 % 2030)))
 (s/def ::height (s/and string? (s/or :cm height-cm :in height-in))) ;; [:cm 176]
 (s/def ::eye-color eye-colors)
 (s/def ::hair-color (s/and string? #(re-matches hair-color-regex %)))
