@@ -91,12 +91,30 @@
         next-order
         (recur next-available next-paths next-order)))))
 
-@(def instructions
-   "parsed instructions from input"
-   (->> real-input
-        (map parse-instruction)))
+(defn process
+  [{:keys [prerequisite-map ordered]}]
+  (let [availables (map first (filter (fn [[_step requires]] (empty? requires)) prerequisite-map))
+        target (first (sort availables))
+        remove-current-target (fn [requirements] (disj requirements target))
+        updated-prerequsite-map (-> prerequisite-map
+                                    (update-vals remove-current-target)
+                                    (dissoc target))]
+    {:prerequisite-map updated-prerequsite-map :ordered (conj ordered target)}))
+
+(def instructions
+  "parsed instructions from input"
+  (->> real-input
+       (map parse-instruction)))
 
 (comment
+  (let [ins instructions
+        init-data {:prerequisite-map (prerequisite-map ins) :ordered []}
+        prerequisite-satisfied? (fn [{pre-map :prerequisite-map}] (not-every? #(empty? %) pre-map))]
+    (->> init-data
+         (iterate process)
+         (drop-while prerequisite-satisfied?)
+         (first)))
+
   (let [ins instructions
         path-map (path-map ins)
         prerequisite-map (prerequisite-map ins)

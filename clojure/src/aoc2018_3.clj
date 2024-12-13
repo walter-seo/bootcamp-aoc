@@ -28,13 +28,20 @@
 
 ;; 여기서 XX는 ID 1, 2, 3의 영역이 두번 이상 겹치는 지역.
 ;; 겹치는 지역의 갯수를 출력하시오. (위의 예시에서는 4)
-(def sample-input "#1 @ 1,3: 4x4
+(def raw-input "#1 @ 1,3: 4x4
                      #2 @ 3,1: 4x4
                      #3 @ 5,5: 2x2")
 
-(def real-input (slurp "resources/day3.input.txt"))
+(def sample-input
+  ["#1 @ 1,3: 4x4"
+   "#2 @ 3,1: 4x4"
+   "#3 @ 5,5: 2x2"])
 
-(defn coverages [[top-x top-y] [width height]]
+(def real-input (map str/trim (str/split-lines (slurp "resources/day3.input.txt"))))
+
+(defn coverages
+  "왼쪽 위 좌표와 (width, height)를 받아 coverage 좌표 목록 반환"
+  [[top-x top-y] [width height]]
   (frequencies (for [x (range top-x (+ top-x width))
                      y (range top-y (+ top-y height))]
                  [x y])))
@@ -56,14 +63,14 @@
        ;; aggregate
        (apply merge-with +) ; => {[4 3] 2, [2 3] 1, ...}
        (vals)
-       (filter (partial <= 2))
+       (filter #(>= % 2))
        (count)))
 
+(def lines real-input)
+
 (comment
-  (->> sample-input
+  (->> lines
        ;; parsing
-       (str/split-lines)
-       (map str/trim)
        (map parse-claim) ; => ({:idx 1, :start [1 3], :rect [4 4]} ..)
        ;; process & aggregate
        (count-overlap-covers)))
@@ -74,25 +81,34 @@
 ;; 위의 예시에서는 ID 3 이 ID 1, 2와 겹치지 않음. 3을 출력.
 ;; 겹치지 않는 영역을 가진 ID를 출력하시오. (문제에서 답이 하나만 나옴을 보장함)
 
-(defn put-coverage [item]
+(defn put-coverage
+  "put :cover and :total data into given *item* data structure."
+  [item]
   (-> item
       (assoc :cover (coverages (item :start) (item :rect)))
       (assoc :total (apply * (item :rect)))))
 
-(defn total-overlaps [coll]
+(defn total-overlaps
+  "keep only overlapped cover coordinate"
+  [coll]
   (->> coll
        (map :cover)
        (apply merge-with +)
        (keep #(when (>= (second %) 2) (first %)))
        set))
 
-(defn non-overlap? [coverages total-overlap]
+(defn non-overlap?
+  [coverages total-overlap]
   (empty? (clojure.set/intersection (set coverages) total-overlap)))
 
-(defn find-first [fun coll]
+(defn find-first
+  "Util function finding first match element in given collection"
+  [fun coll]
   (some #(when (fun %) %) coll))
 
-(defn find-non-overlap [coll]
+(defn find-non-overlap
+  "find item that cover is not overlapped."
+  [coll]
   (let [total-overlaps (total-overlaps coll)]
     (find-first
      #(-> %
@@ -102,10 +118,8 @@
      coll)))
 
 (comment
-  (->> real-input
+  (->> lines
        ;; parsing
-       (str/split-lines)
-       (map str/trim)
        (map parse-claim)
        (map put-coverage)
        ;; processing & aggregate

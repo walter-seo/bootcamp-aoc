@@ -14,39 +14,43 @@
 ;; ababab 3개의 a, 3개의 b 지만 한 문자열에서 같은 갯수는 한번만 카운트함 -> (두번 나오는 문자열 수: 4, 세번 나오는 문자열 수: 3)
 ;; 답 : 4 * 3 = 12
 ;; 
-;; 
-;; 
 
-(defn box-ids-counts-uniq [ids-str]
-  (->> ids-str
-       str/trim
-       frequencies
-       vals
-       distinct))
+(def raw-input
+  "abcde
+    fghij
+    klmno
+    pqrst
+    fguij
+    axcye
+    wvxyz")
 
-(defn checksum [input]
-  (->> input
-       ;; parsing
-       (str/split-lines)
-       ;; processing
-       (map box-ids-counts-uniq) ; (1) (1 2) (2 3) (3)
-       (mapcat #(filter #{2 3} %))
-       (frequencies)
-       (vals)
-       ;; aggregate
-       (reduce *)))
-(def real-input (slurp "resources/day2.input.txt"))
+(def sample-input-1 ["abcdef" "bababc" "abbcde" "abcccd" "aabcdd" "abcdee" "ababab"])
+(def sample-input-2
+  ["abcde" "fghij" "klmno" "pqrst" "fguij" "axcye" "wvxyz"])
+
+(def real-input (map str/trim (str/split-lines (slurp "resources/day2.input.txt"))))
+
+(defn checksum
+  "주어진 box ids 마다 check-frequent 빈도를 갖는 character 수만 집계하여 만든 checksum 반환"
+  ([box-ids-list] (checksum box-ids-list #{2 3}))
+  ([box-ids-list check-frequent]
+   (->> box-ids-list
+        ;; processing
+        (map (comp distinct vals frequencies)) ; (1) (1 2) (2 3) (3)
+        (mapcat #(filter check-frequent %))
+        (frequencies)
+        (vals)
+        ;; aggregate
+        (apply *))))
 
 (comment
-  (def sample-input "abcdef
-                     bababc
-                     abbcde
-                     abcccd
-                     aabcdd
-                     abcdee
-                     ababab")
+  (checksum sample-input-1)
 
-  (checksum real-input))
+  (checksum sample-input-2)
+
+  (checksum real-input)
+  ;;
+  )
 
 ;; 파트 2
 ;; 여러개의 문자열 중, 같은 위치에 정확히 하나의 문자가 다른 문자열 쌍에서 같은 부분만을 리턴하시오.
@@ -59,20 +63,21 @@
 ;; axcye
 ;; wvxyz
 
-;; 주어진 예시에서 fguij와 fghij는 같은 위치 (2번째 인덱스)에 정확히 한 문자 (u와 h)가 다름. 따라서 같은 부분인 fgij를 리턴하면 됨.
-(defn correct-boxes?
-  "두 문자열이 correct match 인지 여부"
+;; 주어진 예시에서 fguij와 fghij는 같은 위치 (2번째 인덱스)에 정확히 한 문자 (u와 h)가 다름.
+;; 따라서 같은 부분인 fgij를 리턴하면 됨.
+(defn match-box-pair?
+  "두 box ids 문자열이 한 문자만 차이나는 match 여부"
   [a-str b-str]
-  (->> (map vector a-str b-str)
-       (filter (fn [[ac bc]] (not= ac bc)))
-       count
-       (= 1)))
+  (let [diff-count (->> (map vector a-str b-str)
+                        (filter (fn [[ac bc]] (not= ac bc)))
+                        (count))]
+    (= 1 diff-count)))
 
 (defn common-letters
   "공통 문자열 반환"
   [a-str b-str]
   (->> (map vector a-str b-str)
-       (filter (fn [[ac bc]] (= ac bc)))
+       (filter (partial apply identical?))
        (map first)
        (apply str)))
 
@@ -87,49 +92,42 @@
 (defn find-correct-box-pair
   "주어진 조합 안에서 correct box pair 찾아서 반환"
   [box-pairs]
-  (->> box-pairs
-       (reduce
-        (fn [_ [item1 item2]]
-          (if (correct-boxes? item1 item2)
-            (reduced (vector item1 item2))
-            nil)))))
+  (loop [[[item1 item2 :as pair] & remain] box-pairs]
+    (cond
+      (empty? pair) nil
+      (match-box-pair? item1 item2) [item1 item2]
+      :else (recur remain))))
 
 (defn find-correct-boxes
   "correct box 쌍 찾고 공통 문자열 반환"
-  [words]
-    ;; loop & recur VS reduce & reduced
-    ;;   (loop [[item & remaining] words]
-    ;;       (if ( correct-boxes? item ))
-    ;;     )
-    ;; NOTE
-    ;; It might be poor performance because it causes O(N^2) time complexity.
-    ;; It will return nil when it is not able to find the correct boxes.
-  (->>  words
+  [box-id-seq]
+  (->>  box-id-seq
         (box-pairs)
         (find-correct-box-pair)
         (apply common-letters)))
 
-(defn solve-2 [input]
-  (->> input
-    ;; parsing
-       str/split-lines
-       (map str/trim)
-    ;; processing & aggregate 
-       find-correct-boxes))
+(def box-ids-seq real-input)
 
 (comment
-  (def sample-input
-    "abcde
-    fghij
-    klmno
-    pqrst
-    fguij
-    axcye
-    wvxyz")
+  (match-box-pair? "abcde" "abcdf")
 
-  (solve-2 real-input))
-  ;;
+  (find-correct-boxes box-ids-seq))
 
 ;; #################################
 ;; ###        Refactoring        ###
 ;; #################################
+
+;; Part 2 Again
+;; loop 대신 drop-while로 풀이
+(defn find-correct-boxes-v2
+  [box-id-seq]
+  (->> box-id-seq
+       (box-pairs)
+       (drop-while #(apply (complement match-box-pair?) %))
+       (first)
+       (apply common-letters)))
+
+(comment
+  (find-correct-boxes box-ids-seq)
+
+  (find-correct-boxes-v2 box-ids-seq))
